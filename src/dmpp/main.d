@@ -24,7 +24,25 @@ alias immutable(uchar)[] ustring;
 
 extern (C) int isatty(int);
 
-alias typeof(File.lockingTextWriter()) R;
+pure nothrow @nogc @safe void breakHere() {}
+auto keepTrack(I)(I input)
+{
+    static struct Result
+    {
+        I wrapped;
+        auto ref put(T)(auto ref T item) if (__traits(compiles, wrapped.put(item)))
+        {
+            breakHere();
+            stderr.writeln("Putting item: ", cast(char)item);
+            wrapped.put(item);
+        }
+
+    }
+
+    return Result(input);
+}
+
+alias typeof(File.lockingTextWriter().keepTrack) R;
 
 version (unittest)
 {
@@ -67,7 +85,7 @@ else
                 auto fout = params.stdout ? stdout : File(outFilename, "wb");
                 if (!isatty(fout.fileno))
                     fout.setvbuf(0x100000);
-                auto foutr = fout.lockingTextWriter();      // has destructor
+                auto foutr = fout.lockingTextWriter().keepTrack;      // has destructor
 
                 context.localStart(sf, &foutr);
                 context.preprocess();

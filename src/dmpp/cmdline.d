@@ -31,6 +31,7 @@ struct Params
     string[] sysincludes;
     bool verbose;
     bool stdout;
+    bool simpleExpand;
 }
 
 
@@ -59,6 +60,7 @@ Options:
   -I path           path to #include files
   --isystem path    path to system #include files
   -o filename       preprocessed output file
+  --simple          simple expansion of macros
   --stdout          output to stdout
   -v                verbose
 ");
@@ -77,6 +79,7 @@ Options:
         "isystem",      &p.sysincludes,
         "dep",          &p.depFilename,
         "output|o",     &p.outFilenames,
+        "simple",       &p.simpleExpand,
         "stdout",       &p.stdout,
         "v",            &p.verbose);
 

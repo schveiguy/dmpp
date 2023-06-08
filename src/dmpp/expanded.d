@@ -78,7 +78,8 @@ struct Expanded(R)
                 {
                     if (ctx.uselastloc)
                     {
-                        ctx.lastloc.linemarker(foutr);
+                        if(!ctx.simple)
+                            ctx.lastloc.linemarker(foutr);
                     }
                     else
                     {
@@ -90,28 +91,33 @@ struct Expanded(R)
                          * s.loc.lineNumber may be further ahead than just one.
                          * This, then, is a bug.
                          */
-                        s.loc.linemarker(foutr);
+                        if(!ctx.simple)
+                            s.loc.linemarker(foutr);
                         ctx.lastloc = s.loc;
                     }
                     lineNumber = linnum;
                 }
                 else if (linnum != lineNumber)
                 {
-                    if (lineNumber + 30 > linnum)
+                    if(!ctx.simple)
                     {
-                        foreach (i; lineNumber .. linnum)
-                            foutr.put('\n');
-                    }
-                    else
-                    {
-                        s.loc.linemarker(foutr);
+                        if (lineNumber + 30 > linnum)
+                        {
+                            foreach (i; lineNumber .. linnum)
+                                foutr.put('\n');
+                        }
+                        else
+                        {
+                            s.loc.linemarker(foutr);
+                        }
                     }
                     lineNumber = linnum;
                 }
             }
             else if (ctx.uselastloc && ctx.lastloc.srcFile)
             {
-                ctx.lastloc.linemarker(foutr);
+                if(!ctx.simple)
+                    ctx.lastloc.linemarker(foutr);
             }
         }
         ctx.uselastloc = false;

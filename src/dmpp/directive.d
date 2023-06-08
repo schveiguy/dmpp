@@ -256,9 +256,29 @@ bool parseDirective(R)(ref R r)
     //writefln("parseDirective() seenTokens = %s", r.src.currentSourceFile().seenTokens);
 
     // Ensure the '#' is left-justified in the output
-    r.src.expanded.eraseLine();
-    r.src.expanded.put('#');
-    r.src.expanded.put(cast(uchar)r.src.front);
+    void eraseLine()
+    {
+        if(!r.src.simple)
+            r.src.expanded.eraseLine();
+    }
+    void expandOff()
+    {
+        if(!r.src.simple)
+            r.src.expanded.off();
+    }
+    void expandOn()
+    {
+        if(!r.src.simple)
+            r.src.expanded.on();
+    }
+    eraseLine();
+
+    // what is this for?
+    if(!r.src.simple)
+    {
+        r.src.expanded.put('#');
+        r.src.expanded.put(cast(uchar)r.src.front);
+    }
 
     r.popFrontNoExpand();
     if (r.empty)
@@ -295,7 +315,7 @@ bool parseDirective(R)(ref R r)
                 case "line":
                     // #line directive
                     // Turn off expanded output so this line is not emitted
-                    r.src.expanded.off();
+                    expandOff();
                     r.src.expanded.eraseLine();
 
                     linemarker = false;
@@ -306,7 +326,7 @@ bool parseDirective(R)(ref R r)
 
                     if (r.front != TOK.eol)
                         err_fatal("end of line expected following #line");
-                    r.src.expanded.on();
+                    expandOn();
                     r.src.expanded.put('\n');
                     r.src.expanded.put(r.src.front);
                     return false;
@@ -321,13 +341,13 @@ bool parseDirective(R)(ref R r)
                             csf.loc.srcFile.once = true;
 
                         // Turn off expanded output so this line is not emitted
-                        r.src.expanded.off();
+                        expandOff();
                         r.src.expanded.eraseLine();
 
                         r.popFront();
                         if (r.front != TOK.eol)
                             err_fatal("end of line expected following #pragma once");
-                        r.src.expanded.on();
+                        expandOn();
                         r.src.expanded.put('\n');
                         r.src.expanded.put(r.src.front);
                         return true;
@@ -338,13 +358,13 @@ bool parseDirective(R)(ref R r)
                         if (r.front == TOK.identifier && r.idbuf[] == "system_header")
                         {
                             // Turn off expanded output so this line is not emitted
-                            r.src.expanded.off();
+                            expandOff();
                             r.src.expanded.eraseLine();
 
                             r.popFront();
                             if (r.front != TOK.eol)
                                 err_fatal("end of line expected following #pragma GCC system_header");
-                            r.src.expanded.on();
+                            expandOn();
                             r.src.expanded.put('\n');
                             r.src.expanded.put(r.src.front);
                             return true;
@@ -365,13 +385,13 @@ bool parseDirective(R)(ref R r)
                 case "define":
                 {
                     // Turn off expanded output so this line is not emitted
-                    r.src.expanded.off();
-                    r.src.expanded.eraseLine();
+                    expandOff();
+                    eraseLine();
 
                     r.popFrontNoExpand();
                     assert(!r.empty);
                     if (r.front != TOK.identifier)
-                    {   r.src.expanded.on();
+                    {   expandOn();
                         err_fatal("identifier expected following #define");
                         return true;
                     }
@@ -437,7 +457,7 @@ bool parseDirective(R)(ref R r)
                         else
                             err_fatal("redefinition of macro %s", cast(string)macid);
                     }
-                    r.src.expanded.on();
+                    expandOn();
                     r.src.expanded.put(r.src.front);
                     r.front = TOK.eol;
                     return true;
@@ -446,13 +466,13 @@ bool parseDirective(R)(ref R r)
                 case "undef":
                 {
                     // Turn off expanded output so this line is not emitted
-                    r.src.expanded.off();
-                    r.src.expanded.eraseLine();
+                    expandOff();
+                    eraseLine();
 
                     r.popFrontNoExpand();
                     assert(!r.empty);
                     if (r.front != TOK.identifier)
-                    {   r.src.expanded.on();
+                    {   expandOn();
                         err_fatal("identifier expected following #undef");
                         return true;
                     }
@@ -464,7 +484,7 @@ bool parseDirective(R)(ref R r)
                     if (r.front != TOK.eol)
                         err_fatal("end of line expected following #undef");
 
-                    r.src.expanded.on();
+                    expandOn();
                     r.src.expanded.put(r.src.front);
                     return true;
                 }
@@ -476,14 +496,14 @@ bool parseDirective(R)(ref R r)
 
                 case "warning":
                     // Turn off expanded output so this line is not emitted
-                    r.src.expanded.off();
-                    r.src.expanded.eraseLine();
+                    expandOff();
+                    eraseLine();
 
                     auto msg = r.src.restOfLine();
                     auto csf = r.src.currentSourceFile();
                     err_warning(csf ? csf.loc : Loc(), "%s", cast(string)msg);
 
-                    r.src.expanded.on();
+                    expandOn();
                     r.src.expanded.put('\n');
                     r.src.expanded.put(r.src.front);
                     return true;
@@ -493,8 +513,8 @@ bool parseDirective(R)(ref R r)
                     if (auto csf = r.src.currentSourceFile())
                         csf.seenTokens = true;
                     // Turn off expanded output so this line is not emitted
-                    r.src.expanded.off();
-                    r.src.expanded.eraseLine();
+                    expandOff();
+                    eraseLine();
 
                     r.popFront();
                     assert(!r.empty);
@@ -508,11 +528,14 @@ bool parseDirective(R)(ref R r)
 
                     if (!cond)
                     {
+                        // ensure expansion is off
+                        if(r.src.simple)
+                            r.src.expanded.off();
                         r.skipFalseCond();
                         return true;
                     }
 
-                    r.src.expanded.on();
+                    expandOn();
                     r.src.expanded.put(r.src.front);
                     return true;
                 }
@@ -522,13 +545,13 @@ bool parseDirective(R)(ref R r)
                     if (auto csf = r.src.currentSourceFile())
                         csf.seenTokens = true;
                     // Turn off expanded output so this line is not emitted
-                    r.src.expanded.off();
-                    r.src.expanded.eraseLine();
+                    expandOff();
+                    eraseLine();
 
                     r.popFrontNoExpand();
                     assert(!r.empty);
                     if (r.front != TOK.identifier)
-                    {   r.src.expanded.on();
+                    {   expandOn();
                         err_fatal("identifier expected following #ifdef");
                         return true;
                     }
@@ -547,11 +570,13 @@ bool parseDirective(R)(ref R r)
 
                     if (!cond)
                     {
+                        if(r.src.simple)
+                            r.src.expanded.off();
                         r.skipFalseCond();
                         return true;
                     }
 
-                    r.src.expanded.on();
+                    expandOn();
                     r.src.expanded.put(r.src.front);
                     return true;
                 }
@@ -564,13 +589,13 @@ bool parseDirective(R)(ref R r)
                         seenTokens = sf.seenTokens;
 
                     // Turn off expanded output so this line is not emitted
-                    r.src.expanded.off();
-                    r.src.expanded.eraseLine();
+                    expandOff();
+                    eraseLine();
 
                     r.popFrontNoExpand();
                     assert(!r.empty);
                     if (r.front != TOK.identifier)
-                    {   r.src.expanded.on();
+                    {   expandOn();
                         err_fatal("identifier expected following #ifndef");
                         return true;
                     }
@@ -592,8 +617,8 @@ bool parseDirective(R)(ref R r)
 
                 case "else":
                     // Turn off expanded output so this line is not emitted
-                    r.src.expanded.off();
-                    r.src.expanded.eraseLine();
+                    expandOff();
+                    eraseLine();
                     r.popFront();
                     if (r.front != TOK.eol)
                         err_fatal("end of line expected after #else");
@@ -603,14 +628,16 @@ bool parseDirective(R)(ref R r)
                     {
                         r.src.ifstack.pop();
                         r.src.ifstack.put(CONDendif);
+                        if(r.src.simple)
+                            r.src.expanded.off();
                         r.skipFalseCond();
                     }
                     return true;
 
                 case "elif":
                     // Turn off expanded output so this line is not emitted
-                    r.src.expanded.off();
-                    r.src.expanded.eraseLine();
+                    expandOff();
+                    eraseLine();
                     while (!r.empty)
                     {
                         r.popFront();
@@ -624,6 +651,8 @@ bool parseDirective(R)(ref R r)
                     {
                         r.src.ifstack.pop();
                         r.src.ifstack.put(CONDtoendif);
+                        if(r.src.simple)
+                            r.src.expanded.off();
                         r.skipFalseCond();
                     }
                     return true;
@@ -650,12 +679,12 @@ bool parseDirective(R)(ref R r)
                         r.src.ifstack.pop();
                     }
                     // Turn off expanded output so this line is not emitted
-                    r.src.expanded.off();
-                    r.src.expanded.eraseLine();
+                    expandOff();
+                    eraseLine();
                     r.popFront();
                     if (r.front != TOK.eol)
                         err_fatal("end of line expected after #endif");
-                    r.src.expanded.on();
+                    expandOn();
                     r.src.expanded.put('\n');
                     r.src.expanded.put(r.src.front);
                     return result;
@@ -663,10 +692,9 @@ bool parseDirective(R)(ref R r)
 
                 case "include_next":
                     includeNext = true;
-                    goto Linclude;
+                    goto case; // fallthrough
 
                 case "include":
-                Linclude:
                 {
                     // Things to know about the file doing the #include'ing
                     string currentFile;         // file name
@@ -683,8 +711,8 @@ bool parseDirective(R)(ref R r)
                     }
 
                     // Turn off expanded output so this line is not emitted
-                    r.src.expanded.off();
-                    r.src.expanded.eraseLine();
+                    expandOff();
+                    eraseLine();
 
                     uchar[60] tmpbuf = void;
                     auto stringbuf = Textbuf!uchar(tmpbuf);
@@ -731,7 +759,7 @@ bool parseDirective(R)(ref R r)
                         currentFile, pathIndex, system);
                     stringbuf.free();
                     r.src.popFront();
-                    r.src.expanded.on();
+                    expandOn();
                     r.popFront();
                     return false;
                 }
@@ -786,7 +814,7 @@ bool parseDirective(R)(ref R r)
             }
             if (!linemarker)
             {
-                r.src.expanded.on();
+                expandOn();
                 r.src.expanded.put(r.src.front);
             }
             break;
@@ -965,7 +993,7 @@ void skipFalseCond(R)(ref R r)
 void includeFile(R)(R ctx, bool includeNext, bool sysstring, const(char)[] s,
         string currentFile, int pathIndex, Sys system)
 {
-    //writefln("includeFile('%s')", s);
+    writefln("includeFile('%s')", s);
     s = strip(s);       // remove leading and trailing whitespace
 
     auto sf = ctx.searchForFile(includeNext, sysstring, system, s, pathIndex, currentFile);

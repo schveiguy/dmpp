@@ -42,6 +42,7 @@ import sources;
 struct Context(R)
 {
     SourceStack stack;
+    // simple mode
     Expanded!R expanded;         // for expanded (preprocessed) output
 
     const Params params;      // command line parameters
@@ -92,6 +93,10 @@ struct Context(R)
         ifstack.initialize();
         expanded.initialize(&this);
         setContext();
+    }
+
+    bool simple() {
+        return params.simpleExpand;
     }
 
     /**************************************
@@ -173,20 +178,26 @@ struct Context(R)
                 // contains directory information that may be helping gdb
                 // locate sources).
                 import std.file, std.format;
-                outrange.formattedWrite(
-                    "# 1 \"%1$s\"\n" ~
-                    "# 1 \"%2$s//\"\n" ~
-                    "# 1 \"<command-line>\"\n" ~
-                    "# 1 \"%1$s\"\n",
-                    s.loc.srcFile.filename, getcwd);
+                if(!simple)
+                    outrange.formattedWrite(
+                            "# 1 \"%1$s\"\n" ~
+                            "# 1 \"%2$s//\"\n" ~
+                            "# 1 \"<command-line>\"\n" ~
+                            "# 1 \"%1$s\"\n",
+                            s.loc.srcFile.filename, getcwd);
             }
         }
     }
 
     void pushFile(SrcFile* sf, Sys system, int pathIndex)
     {
-        //write("pushFile ", pathIndex);
+
+        writeln("pushFile ", sf.filename, " ", pathIndex);
+        bool shouldSkipOutput = simple && psourceFile;
+        if(shouldSkipOutput)
+            expanded.off();
         auto s = push();
+        s.suppressOutput = shouldSkipOutput;
         psourceFile = s;
         s.addFile(sf, system, pathIndex);
         if (lastloc.srcFile)
@@ -443,6 +454,12 @@ struct Context(R)
                 // Saw #endif and no tokens
                 s.loc.srcFile.includeGuard = s.includeGuard;
             }
+
+            if(simple && s.suppressOutput)
+            {
+                writeln("finised non-expanding file");
+                expanded.on(); // turn output back on.
+            }
         }
         stack.psource = stack.psource.prev;
         debug (ContextStats)
@@ -686,6 +703,7 @@ struct Source
     bool isFile;        // if it is a file
     bool isExpanded;    // true if already macro expanded
     bool seenTokens;    // true if seen tokens
+    bool suppressOutput; // true if the output was suppressed (simple mode)
 
     // Double linked list of stack of Source's
     Source* prev;
